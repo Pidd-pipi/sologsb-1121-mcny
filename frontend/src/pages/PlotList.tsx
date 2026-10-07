@@ -24,6 +24,7 @@ import { useTreeStore } from '../stores/treeStore';
 import { useRegenStore } from '../stores/regenStore';
 import { usePlotFilter } from '../hooks/usePlotFilter';
 import PlotCard from '../components/common/PlotCard';
+import AdvanceRoundButton from '../components/common/AdvanceRoundButton';
 import { FOREST_TYPES, PLOT_SHAPES, type PlotDraft, type PlotShape } from '../types/plot';
 
 const EMPTY: PlotDraft = {
@@ -216,6 +217,7 @@ export default function PlotList() {
                     <Button size="small" type="link" onClick={() => navigate(`/summary/${plot.id}`)}>
                       林分汇总
                     </Button>
+                    <AdvanceRoundButton plotId={plot.id} />
                     <Button size="small" danger={!plot.locked} onClick={() => toggleLock(plot.id)}>
                       {plot.locked ? '解锁往期' : '锁定往期'}
                     </Button>

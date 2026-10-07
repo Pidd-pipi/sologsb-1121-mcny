@@ -35,6 +35,7 @@ cd frontend
 npm install
 npm run dev      # http://localhost:5173
 npm run build    # tsc 类型检查 + vite 构建
+npm test         # 推期服务与 v2→v3 迁移的 Node 测试（fake-indexeddb）
 ```
 
 > 生产环境由 nginx 托管 `dist`，`nginx.conf` 已启用 `try_files $uri $uri/ /index.html;` 与 gzip。
@@ -60,8 +61,9 @@ sologsb-1121/
         ├── router/index.tsx
         ├── types/{plot,tree,regen,recheck}.ts
         ├── stores/{plot,tree,regen}Store.ts
-        ├── components/common/{PlotCard,TreeTable,GrowthDiffTable,RoundTag}.tsx
-        ├── hooks/{usePlotFilter,useTreeStats}.ts
+        ├── services/roundAdvance.ts
+        ├── hooks/{usePlotFilter,useTreeStats,useRoundAdvance}.ts
+        ├── components/common/{PlotCard,TreeTable,GrowthDiffTable,RoundTag,AdvanceRoundButton}.tsx
         ├── pages/{PlotList,TreeEntry,RegenView,RecheckView,PlotSummary}.tsx
         └── utils/{db,forestCalc,id}.ts
 ```
@@ -80,14 +82,26 @@ sologsb-1121/
 
 ## 数据存储说明
 
-- 数据库名 `gbforestplot`，当前结构版本 **v2**（`localStorage['gbforestplot:db-version']` 记录）。
+- 数据库名 `gbforestplot`，当前结构版本 **v3**（`localStorage['gbforestplot:db-version']` 记录）。
 - 四张表：`plots`（样地）、`trees`（样木，按期次分行）、`regens`（更新苗与灌木样方）、`rechecks`（复查逐株比对）。
 - v1 → v2 迁移：为老样地补 `locked`、`surveyRound`，为老样木补 `round`、`measuredAt`，并新增索引。
+- v2 → v3 迁移：为缺少期次的老更新苗/灌木样方补 `round`，并兜底 plots/trees 的期次缺失（满足推期前置条件）。
 - 容器无状态、不挂载命名卷；清空站点数据即回到初始示范数据。
 - 首次打开灌入 2 个示范样地、11 条样木（含第 1/2 两期，便于直接做复查比对）与 4 条样方记录。
 
+## 期次推进（一次收尾动作）
+
+「推进下一期」入口在样地台账卡片与样木录入页（`AdvanceRoundButton`）。点开后先做只读预检，确认弹窗汇总本期带入新期与旧期留档的株数：
+
+- **以本期实测为准**：活立木、枯立木带着最近一次胸径与树高生成新期待复测行（同树号取最近实测记录）；采伐、倒木不进入新期，只在旧期留档。
+- **旧期原值保存**：推进不修改任何旧期行，新期可同时选两期做逐株比对（新期未复测的树在比对中标记「本期未复测（疑似采伐或倒伏）」）。
+- **老数据先回填**：样地档案、样木或样方存在没有期次的记录时，预检拦截推进，弹窗提供「回填为第 1 期」，回填后自动重新预检并允许推进；v2→v3 数据库升级也会自动兜底回填。
+- **比对/汇总作废重算**：期次一变，该样地已保存的逐株比对结果在同一事务内删除，复查比对页需重新生成；林分汇总是实时计算，自动按新期重算。
+- **失败可重试**：推进全程单个 IndexedDB 事务，任一步失败整体回滚到推期前；失败后界面重新拉取库内真实状态，可原样再点一次。下一期若已存在样木则阻止重复推进。
+
 ## 功能要点
 
+- **期次推进**：单事务把本期立木（带最近胸径/树高）结转新期待复测，采伐与倒木只留档旧期；缺期次先回填、下一期已有数据防重复推进、失败整体回滚可重试，比对结果随期次作废。
 - **径阶归组**：按「6/8/12/16/20/24/28/32+」cm 径阶自动归组，表格内联展示各径阶株数。
 - **胸径异常提示**：数值超出 0~200 cm 或与本树种同期均值偏离 >60% 时标黄并给出提示。
 - **复查比对**：任选上下两期生成逐株差值表，标记「本期未复测（疑似采伐或倒伏）」与「本期新增进界木」，生长率为负或缺失行高亮，并计算保留木生长率。

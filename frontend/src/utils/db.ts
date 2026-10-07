@@ -6,7 +6,7 @@ import type { RecheckDiff } from '../types/recheck';
 import { newId } from './id';
 
 export const DB_NAME = 'gbforestplot';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 export const LS_VERSION_KEY = 'gbforestplot:db-version';
 
 class ForestPlotDB extends Dexie {
@@ -44,6 +44,35 @@ class ForestPlotDB extends Dexie {
           .modify((row: any) => {
             if (row.round === undefined) row.round = 1;
             if (row.measuredAt === undefined) row.measuredAt = Date.now();
+          });
+      });
+    // v2 → v3：补 regens.round（v2 迁移只补了 trees.round），并兜底所有表的期次缺失，
+    // 使老样地满足「先回填期次再允许推进」的前置条件。
+    this.version(3)
+      .stores({
+        plots: 'id, plotNo, locality, forestType, surveyRound, locked, createdAt',
+        trees: 'id, plotId, treeNo, species, round, status, measuredAt',
+        regens: 'id, plotId, layer, species, round, heightCm',
+        rechecks: 'id, plotId, baseRound, targetRound, treeNo, generatedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('plots')
+          .toCollection()
+          .modify((row: any) => {
+            if (row.surveyRound === undefined) row.surveyRound = 1;
+          });
+        await tx
+          .table('trees')
+          .toCollection()
+          .modify((row: any) => {
+            if (row.round === undefined) row.round = 1;
+          });
+        await tx
+          .table('regens')
+          .toCollection()
+          .modify((row: any) => {
+            if (typeof row.round !== 'number' || !Number.isFinite(row.round)) row.round = 1;
           });
       });
   }

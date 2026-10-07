@@ -22,6 +22,7 @@ import { useTreeStore } from '../stores/treeStore';
 import { useTreeStats } from '../hooks/useTreeStats';
 import TreeTable from '../components/common/TreeTable';
 import RoundTag from '../components/common/RoundTag';
+import AdvanceRoundButton from '../components/common/AdvanceRoundButton';
 import {
   HEALTH_CLASSES,
   TREE_ORIGINS,
@@ -49,7 +50,7 @@ export default function TreeEntry() {
   const [round, setRound] = useState(plot?.surveyRound ?? 1);
   useEffect(() => {
     if (plot) setRound(plot.surveyRound);
-  }, [plot?.id]);
+  }, [plot?.id, plot?.surveyRound]);
 
   const stats = useTreeStats(id, round);
   const peers = trees.filter((t) => t.plotId === id);
@@ -132,6 +133,12 @@ export default function TreeEntry() {
         <Button type="link">
           <Link to={`/plots/${plot.id}/recheck`}>复查比对</Link>
         </Button>
+        <AdvanceRoundButton
+          plotId={plot.id}
+          size="middle"
+          type="primary"
+          onAdvanced={(next) => setRound(next)}
+        />
         <Button type="link">
           <Link to={`/summary/${plot.id}`}>林分汇总</Link>
         </Button>
