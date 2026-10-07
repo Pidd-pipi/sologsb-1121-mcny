@@ -49,7 +49,7 @@ export default function TreeEntry() {
   const [round, setRound] = useState(plot?.surveyRound ?? 1);
   useEffect(() => {
     if (plot) setRound(plot.surveyRound);
-  }, [plot?.id]);
+  }, [plot?.id, plot?.surveyRound]);
 
   const stats = useTreeStats(id, round);
   const peers = trees.filter((t) => t.plotId === id);

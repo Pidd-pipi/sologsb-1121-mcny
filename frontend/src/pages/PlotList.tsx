@@ -24,7 +24,9 @@ import { useTreeStore } from '../stores/treeStore';
 import { useRegenStore } from '../stores/regenStore';
 import { usePlotFilter } from '../hooks/usePlotFilter';
 import PlotCard from '../components/common/PlotCard';
-import { FOREST_TYPES, PLOT_SHAPES, type PlotDraft, type PlotShape } from '../types/plot';
+import AdvanceRoundButton from '../components/common/AdvanceRoundButton';
+import type { AdvanceResult } from '../utils/advanceRound';
+import { FOREST_TYPES, PLOT_SHAPES, type Plot, type PlotDraft, type PlotShape } from '../types/plot';
 
 const EMPTY: PlotDraft = {
   plotNo: '',
@@ -51,6 +53,9 @@ export default function PlotList() {
   const plots = usePlotStore((s) => s.items);
   const addPlot = usePlotStore((s) => s.add);
   const toggleLock = usePlotStore((s) => s.toggleLock);
+  const loadPlots = usePlotStore((s) => s.load);
+  const loadTrees = useTreeStore((s) => s.load);
+  const loadRegens = useRegenStore((s) => s.load);
   const trees = useTreeStore((s) => s.items);
   const regens = useRegenStore((s) => s.items);
   const { filters, patch, reset, result, options } = usePlotFilter();
@@ -90,6 +95,21 @@ export default function PlotList() {
     setDraft(EMPTY);
     setError('');
     setToast(`已建立样地「${created.plotNo}」`);
+  };
+
+  /** 推期成功后重载各 store，让比对、汇总按新期次重算 */
+  const handleAdvanced = async (plot: Plot, result: AdvanceResult) => {
+    await Promise.all([loadPlots(), loadTrees(), loadRegens()]);
+    const parts = [
+      `「${plot.plotNo}」已推进到第 ${result.toRound} 期`,
+      `${result.carried} 株带最近实测进入新期`,
+      `${result.archived} 株留档第 ${result.fromRound} 期`,
+    ];
+    if (result.backfilledTrees + result.backfilledRegens > 0) {
+      parts.push(`回填期次 ${result.backfilledTrees + result.backfilledRegens} 条`);
+    }
+    if (result.invalidatedDiffs > 0) parts.push(`作废比对结果 ${result.invalidatedDiffs} 条`);
+    setToast(parts.join('，'));
   };
 
   return (
@@ -216,6 +236,7 @@ export default function PlotList() {
                     <Button size="small" type="link" onClick={() => navigate(`/summary/${plot.id}`)}>
                       林分汇总
                     </Button>
+                    <AdvanceRoundButton plot={plot} onDone={(r) => void handleAdvanced(plot, r)} />
                     <Button size="small" danger={!plot.locked} onClick={() => toggleLock(plot.id)}>
                       {plot.locked ? '解锁往期' : '锁定往期'}
                     </Button>

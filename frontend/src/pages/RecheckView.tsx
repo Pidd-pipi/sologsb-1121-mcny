@@ -41,10 +41,9 @@ export default function RecheckView() {
 
   useEffect(() => {
     if (!id) return;
-    void loadRecheckDiffs(id).then((rows) => {
-      if (rows.length > 0) setDiffs(rows);
-    });
-  }, [id]);
+    // 期次变化后已保存的比对结果作废（推期时会从档案库删除），重新加载并清空旧表
+    void loadRecheckDiffs(id).then((rows) => setDiffs(rows));
+  }, [id, plot?.surveyRound]);
 
   useEffect(() => {
     if (!toast) return;
